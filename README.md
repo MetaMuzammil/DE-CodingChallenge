@@ -37,3 +37,7 @@ This project is designed to process weather data using AWS Lambda functions and 
 
    ```sh
    make deploy
+
+### High level Architecture
+
+![alt text](image.png)
