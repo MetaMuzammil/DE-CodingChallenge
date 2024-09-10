@@ -21,6 +21,19 @@ This project is designed to process weather data using AWS Lambda functions and 
 
 - **`weather_data.json`**: Sample or input JSON file containing weather data for testing or processing.
 
+### Template: SSM Parameter
+
+To add new locations, update the `LocationList` parameter in the CloudFormation template. You can specify the location values in the `Value` field of the parameter. For example:
+
+```yaml
+LocationListParameter:
+  Type: AWS::SSM::Parameter
+  Properties:
+    Name: LocationList
+    Type: StringList
+    Value: "3052,2000,4000"
+```
+
 ## Getting Started
 
 ### Prerequisites
@@ -37,7 +50,7 @@ This project is designed to process weather data using AWS Lambda functions and 
 
    ```sh
    make deploy
-
+   ```
 ### High level Architecture
 
 ![alt text](image.png)
