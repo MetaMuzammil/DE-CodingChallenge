@@ -1,0 +1,33 @@
+{
+  "temp": 16.7,
+  "temp_feels_like": 13.5,
+  "wind": {
+    "speed_kilometre": 11,
+    "speed_knot": 6,
+    "direction": "SW"
+  },
+  "gust": {
+    "speed_kilometre": 13,
+    "speed_knot": 7
+  },
+  "max_gust": {
+    "speed_kilometre": 37,
+    "speed_knot": 20,
+    "time": "2024-09-09T01:00:00Z"
+  },
+  "max_temp": {
+    "time": "2024-09-09T03:31:00Z",
+    "value": 17.6
+  },
+  "min_temp": {
+    "time": "2024-09-08T20:45:00Z",
+    "value": 10.9
+  },
+  "rain_since_9am": 0.2,
+  "humidity": 46,
+  "station": {
+    "bom_id": "086338",
+    "name": "Melbourne (Olympic Park)",
+    "distance": 5401
+  }
+}

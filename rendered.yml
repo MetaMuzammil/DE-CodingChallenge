@@ -1,0 +1,273 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Weather data processing system
+Resources:
+  RawBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: ${AWS::StackName}-raw-bucket
+  ProcessedBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: ${AWS::StackName}-processed-bucket
+  AthenaOutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: ${AWS::StackName}-athena-output-bucket
+  WeatherRetrievalLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${AWS::StackName}-weather-retrieval
+      Handler: weather_retreiever.lambda_handler
+      Role:
+        Fn::GetAtt:
+        - DataLambdaExecutionRole
+        - Arn
+      CodeUri: s3://artifactory-ap-southeast-2-667449607472/de-assignment-poc/54465c73eabeece1505a436013bdc9c9
+      Runtime: python3.8
+      Timeout: 120
+      Layers:
+      - Ref: WeatherRetrievalLambdaLayer
+      Environment:
+        Variables:
+          RAW_BUCKET:
+            Ref: RawBucket
+          PARTITION_LAMBDA_ARN:
+            Fn::GetAtt:
+            - DataPartitionLambda
+            - Arn
+      Events:
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+            Enabled: true
+  WeatherRetrievalLambdaLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: weather-au-layer
+      Description: Layer containing the weather_au library
+      ContentUri: s3://artifactory-ap-southeast-2-667449607472/de-assignment-poc/8a0e2d633b7d1b859f1c9d528cb5362c
+      CompatibleRuntimes:
+      - python3.8
+  LocationListParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: LocationList
+      Type: StringList
+      Value: 3052,2000,4000
+  DataPartitionLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${AWS::StackName}-data-partition
+      Handler: partition_lambda.lambda_handler
+      Role:
+        Fn::GetAtt:
+        - LambdaExecutionRole
+        - Arn
+      CodeUri: s3://artifactory-ap-southeast-2-667449607472/de-assignment-poc/33fc1b289e11a973d79d11c2fd08011b
+      Runtime: python3.8
+      Timeout: 120
+      Environment:
+        Variables:
+          RAW_BUCKET:
+            Ref: RawBucket
+          PROCESSED_BUCKET:
+            Ref: ProcessedBucket
+          GLUE_ROLE_ARN:
+            Fn::GetAtt:
+            - GlueCrawlerRole
+            - Arn
+          ATHENA_DATABASE: weather_database
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: S3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Resource:
+            - Fn::GetAtt:
+              - RawBucket
+              - Arn
+            - Fn::Join:
+              - ''
+              - - Fn::GetAtt:
+                  - RawBucket
+                  - Arn
+                - /*
+            - Fn::GetAtt:
+              - ProcessedBucket
+              - Arn
+            - Fn::Join:
+              - ''
+              - - Fn::GetAtt:
+                  - ProcessedBucket
+                  - Arn
+                - /*
+            - Fn::GetAtt:
+              - AthenaOutputBucket
+              - Arn
+            - Fn::Join:
+              - ''
+              - - Fn::GetAtt:
+                  - AthenaOutputBucket
+                  - Arn
+                - /*
+      - PolicyName: AthenaAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - athena:*
+            Resource: '*'
+      - PolicyName: GlueAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - glue:*
+            Resource: '*'
+      - PolicyName: IAMPassRole
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - iam:PassRole
+            Resource:
+              Fn::GetAtt:
+              - GlueCrawlerRole
+              - Arn
+  DataLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: S3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Resource:
+            - Fn::GetAtt:
+              - RawBucket
+              - Arn
+            - Fn::Join:
+              - ''
+              - - Fn::GetAtt:
+                  - RawBucket
+                  - Arn
+                - /*
+            - Fn::GetAtt:
+              - ProcessedBucket
+              - Arn
+            - Fn::Join:
+              - ''
+              - - Fn::GetAtt:
+                  - ProcessedBucket
+                  - Arn
+                - /*
+            - Fn::GetAtt:
+              - AthenaOutputBucket
+              - Arn
+            - Fn::Join:
+              - ''
+              - - Fn::GetAtt:
+                  - AthenaOutputBucket
+                  - Arn
+                - /*
+      - PolicyName: AthenaAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - athena:*
+            Resource: '*'
+      - PolicyName: lambdaInvocationRole
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource:
+              Fn::GetAtt:
+              - DataPartitionLambda
+              - Arn
+      - PolicyName: SSMAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - ssm:GetParameter
+            Resource: '*'
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId:
+        Ref: AWS::AccountId
+      DatabaseInput:
+        Name: weather_database
+  GlueCrawlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: glue.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: GlueCrawlerPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:ListBucket
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - glue:*
+            Resource: '*'
